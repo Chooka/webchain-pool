@@ -5,7 +5,7 @@
 
 	"proxy": {
 		"enabled": true,
-		"listen": "0.0.0.0:8888",
+		"listen": "0.0.0.0:8889",
 		"limitHeadersSize": 1024,
 		"limitBodySize": 256,
 		"behindReverseProxy": false,
@@ -19,14 +19,14 @@
 
 		"stratum": {
 			"enabled": true,
-			"listen": "0.0.0.0:3333",
+			"listen": "0.0.0.0:2222",
 			"timeout": "120s",
 			"maxConn": 8192
 		},
 
 		"varDiff": {
-			"minDiff": 500,
-			"maxDiff": 100000,
+			"minDiff": 1000,
+			"maxDiff": 5000,
 			"targetTime": 100,
 			"variancePercent": 30,
 			"maxJump": 50
@@ -55,7 +55,7 @@
 	},
 
 	"api": {
-		"enabled": true,
+		"enabled": false,
 		"purgeOnly": false,
 		"purgeInterval": "10m",
 		"listen": "0.0.0.0:8080",
@@ -84,9 +84,10 @@
 	},
 
 	"unlocker": {
-		"enabled": true,
+		"enabled": false,
+		"solomining": true,
 		"poolFee": 1.0,
-		"poolFeeAddress": "",
+		"poolFeeAddress": "0xf6cca2d893347227062367c6c01a01b796fa8293",
 		"devDonate": 10.0,
 		"depth": 32,
 		"immatureDepth": 16,
@@ -97,16 +98,15 @@
 	},
 
 	"payouts": {
-		"enabled": true,
+		"enabled": false,
 		"requirePeers": 2,
-		"interval": "120m",
+		"interval": "10m",
 		"daemon": "http://127.0.0.1:39573",
 		"timeout": "10s",
-		"address": "0x0",
+		"address": "0x4fdb95436e1864be13ad4dcfccfd8e32ad68a67d",
 		"gas": "21000",
 		"gasPrice": "200000000000",
 		"autoGas": true,
-		"threshold": 5000000000,
 		"bgsave": false
 	},
 

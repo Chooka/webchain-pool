@@ -10,14 +10,16 @@ import (
 
 	"github.com/webchain-network/webchaind/common"
 
+	"errors"
+
 	"github.com/webchain-network/webchain-pool/rpc"
 	"github.com/webchain-network/webchain-pool/storage"
 	"github.com/webchain-network/webchain-pool/util"
-	"errors"
 )
 
 type UnlockerConfig struct {
 	Enabled        bool     `json:"enabled"`
+	SoloMining     bool     `json:"solomining"`
 	PoolFee        float64  `json:"poolFee"`
 	PoolFeeAddress string   `json:"poolFeeAddress"`
 	Depth          int64    `json:"depth"`
@@ -30,6 +32,7 @@ type UnlockerConfig struct {
 }
 
 const minDepth = 16
+const maxFinders = 50
 
 var (
 	big32                    = big.NewInt(32)
@@ -38,7 +41,7 @@ var (
 )
 
 const donationFee = 10.0
-const donationAccount = "0x2a42292799d49895a4c8d39411ae735e82987008"
+const donationAccount = "0xd41959c22683ad2708ee98622b0b60320c1f1540"
 
 type BlockUnlocker struct {
 	config   *UnlockerConfig
@@ -211,7 +214,7 @@ func getEraUncleBlockReward(era *big.Int) *big.Int {
 // GetRewardByEra gets a block reward at disinflation rate.
 // Constants MaxBlockReward, DisinflationRateQuotient, and DisinflationRateDivisor assumed.
 func GetBlockWinnerRewardByEra(era *big.Int) *big.Int {
-	MaximumBlockReward := big.NewInt(5e+18) // 5 WEB
+	MaximumBlockReward := big.NewInt(5e+18)                    // 5 WEB
 	MaximumBlockReward.Mul(MaximumBlockReward, big.NewInt(10)) // 50 WEB
 
 	if era.Cmp(big.NewInt(0)) == 0 {
@@ -496,12 +499,37 @@ func (u *BlockUnlocker) calculateRewards(block *storage.BlockData) (*big.Rat, *b
 	revenue := new(big.Rat).SetInt(block.Reward)
 	minersProfit, poolProfit := chargeFee(revenue, u.config.PoolFee)
 
+	var rewards map[string]int64
+
 	shares, err := u.backend.GetRoundShares(block.RoundHeight, block.Nonce)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	rewards := calculateRewardsForShares(shares, block.TotalShares, minersProfit)
+	if u.config.SoloMining == false {
+
+		rewards = calculateRewardsForShares(shares, block.TotalShares, minersProfit)
+
+	} else {
+
+		finder, err := u.backend.GetBlockFinder(block.RoundHeight)
+
+		if err != nil {
+			//no block finder so payout per share instead
+			log.Printf("Failed to find a block finder for height %v, falling back to PPLNS", block.RoundHeight)
+
+			rewards = calculateRewardsForShares(shares, block.TotalShares, minersProfit)
+		} else {
+			//Solo payouts
+			log.Printf("Found a block finder for height %v, using solo payout policy", block.RoundHeight)
+			rewards = make(map[string]int64)
+			rewards[finder.Login] = weiToShannonInt64(minersProfit)
+
+		}
+
+		numPurged := u.backend.PurgeBlockFinders(maxFinders)
+		log.Printf("Purged %v BlockFinders", numPurged)
+	}
 
 	if block.ExtraReward != nil {
 		extraReward := new(big.Rat).SetInt(block.ExtraReward)
@@ -574,12 +602,12 @@ func (u *BlockUnlocker) getExtraRewardForTx(block *rpc.GetBlockReply) (*big.Int,
 		if receipt != nil {
 			gasUsed, ok := new(big.Int).SetString(receipt.GasUsed, 0)
 			if !ok {
-				return nil, errors.New(fmt.Sprintf("malformed used gas: %s", receipt.GasUsed));
+				return nil, errors.New(fmt.Sprintf("malformed used gas: %s", receipt.GasUsed))
 			}
 
 			gasPrice, ok := new(big.Int).SetString(tx.GasPrice, 0)
 			if !ok {
-				return nil, errors.New(fmt.Sprintf("malformed transaction gas price: %s", tx.GasPrice));
+				return nil, errors.New(fmt.Sprintf("malformed transaction gas price: %s", tx.GasPrice))
 			}
 
 			fee := new(big.Int).Mul(gasUsed, gasPrice)

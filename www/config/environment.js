@@ -15,14 +15,14 @@ module.exports = function(environment) {
 
     APP: {
       // API host and port
-      ApiUrl: '//example.net/',
+      ApiUrl: '//webchain.ccpoolz.com/',
 
       // HTTP mining endpoint
-      HttpHost: 'example.net',
+      HttpHost: 'webchain.ccpoolz.com',
       HttpPort: 3333,
 
       // Stratum mining endpoint
-      StratumHost: 'example.net',
+      StratumHost: 'webchain.ccpoolz.com',
       StratumPort: 3333,
 
       // Fee and payout details

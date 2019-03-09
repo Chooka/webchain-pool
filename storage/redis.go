@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -46,6 +47,11 @@ type BlockData struct {
 	immatureKey    string
 }
 
+type BlockFinder struct {
+	Login  string
+	Height int64
+}
+
 func (b *BlockData) RewardInShannon() int64 {
 	reward := new(big.Int).Div(b.Reward, common.Shannon)
 	return reward.Int64()
@@ -76,7 +82,7 @@ type Miner struct {
 
 type Worker struct {
 	Miner
-	TotalHR int64 `json:"hr2"`
+	TotalHR     int64 `json:"hr2"`
 	TotalHashes int64 `json:"th"`
 }
 
@@ -214,12 +220,13 @@ func (r *RedisClient) WriteBlock(login, id string, params []string, diff, roundD
 		tx.HIncrBy(r.formatKey("miners", login), "blocksFound", 1)
 		tx.Rename(r.formatKey("shares", "roundCurrent"), r.formatRound(int64(height), params[0]))
 		tx.HGetAllMap(r.formatRound(int64(height), params[0]))
+
 		return nil
 	})
 	if err != nil {
 		return false, err
 	} else {
-		sharesMap, _ := cmds[len(cmds) - 1].(*redis.StringStringMapCmd).Result()
+		sharesMap, _ := cmds[len(cmds)-1].(*redis.StringStringMapCmd).Result()
 		totalShares := int64(0)
 		for _, v := range sharesMap {
 			n, _ := strconv.ParseInt(v, 10, 64)
@@ -228,12 +235,32 @@ func (r *RedisClient) WriteBlock(login, id string, params []string, diff, roundD
 		hashHex := strings.Join(params, ":")
 		s := join(hashHex, ts, roundDiff, totalShares)
 		cmd := r.client.ZAdd(r.formatKey("blocks", "candidates"), redis.Z{Score: float64(height), Member: s})
-		return false, cmd.Err()
+
+		if cmd.Err() != nil {
+			return false, cmd.Err()
+		} else {
+			d := join(login, params[0]) //login:nonce
+			cmd := r.client.ZAdd(r.formatKey("blocks", "finders"), redis.Z{Score: float64(height), Member: d})
+			return false, cmd.Err()
+		}
+
 	}
 }
+func (r *RedisClient) PurgeBlockFinders(minCount int) int64 {
+	option := redis.ZRangeByScore{Min: "-inf", Max: "+inf"}
+	cmd := r.client.ZRangeByScoreWithScores(r.formatKey("blocks", "finders"), option)
+	maxCount := len(cmd.Val())
 
+	if maxCount <= minCount {
+		return 0
+	}
+
+	numRemoved := r.client.ZRemRangeByRank(r.formatKey("blocks", "finders"), 0, (int64)(maxCount-minCount)-1)
+
+	return numRemoved.Val()
+}
 func (r *RedisClient) writeShare(tx *redis.Multi, ms, ts int64, login, id string, diff int64, expire time.Duration) {
-	tx.HIncrBy(r.formatKey("shares", "total"), login + "." + id, diff)
+	tx.HIncrBy(r.formatKey("shares", "total"), login+"."+id, diff)
 	tx.HIncrBy(r.formatKey("shares", "roundCurrent"), login, diff)
 	tx.ZAdd(r.formatKey("hashrate"), redis.Z{Score: float64(ts), Member: join(diff, login, id, ms)})
 	tx.ZAdd(r.formatKey("hashrate", login), redis.Z{Score: float64(ts), Member: join(diff, id, ms)})
@@ -288,6 +315,25 @@ func (r *RedisClient) GetCandidates(maxHeight int64) ([]*BlockData, error) {
 		return nil, cmd.Err()
 	}
 	return convertCandidateResults(cmd), nil
+}
+
+func (r *RedisClient) GetBlockFinder(height int64) (*BlockFinder, error) {
+	h := strconv.FormatInt(height, 10)
+	option := redis.ZRangeByScore{Min: h, Max: h}
+	cmd := r.client.ZRangeByScoreWithScores(r.formatKey("blocks", "finders"), option)
+
+	if cmd.Err() != nil {
+		return nil, cmd.Err()
+	}
+
+	if len(cmd.Val()) == 0 {
+		return nil, errors.New("No Entries Found For Block Finder")
+	}
+
+	entry := cmd.Val()[0]
+
+	finder := BlockFinder{Login: strings.Split(entry.Member.(string), ":")[0], Height: int64(entry.Score)}
+	return &finder, nil
 }
 
 func (r *RedisClient) GetImmatureBlocks(maxHeight int64) ([]*BlockData, error) {
@@ -758,7 +804,7 @@ func (r *RedisClient) CollectWorkersStats(sWindow, lWindow time.Duration, login 
 		worker.TotalHashes = 0
 		if showTotalHashes {
 			cmds, err := tx.Exec(func() error {
-				tx.HGet(r.formatKey("shares", "total"), login + "." + id)
+				tx.HGet(r.formatKey("shares", "total"), login+"."+id)
 				return nil
 			})
 			if err == nil || err == redis.Nil {
