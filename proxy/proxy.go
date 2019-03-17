@@ -41,13 +41,14 @@ type Session struct {
 
 	// Stratum
 	sync.Mutex
-	conn  *net.TCPConn
-	login string
-	hashNoNonce string
-	diff int64
-	nextDiff int64
+	conn               *net.TCPConn
+	login              string
+	hashNoNonce        string
+	diff               int64
+	nextDiff           int64
 	lastShareDurations []time.Duration
-	lastShareTime time.Time
+	lastShareTime      time.Time
+	agent              string
 }
 
 func NewProxy(cfg *Config, backend *storage.RedisClient) *ProxyServer {

@@ -22,7 +22,7 @@ func (s *ProxyServer) handleLoginRPC(cs *Session, params map[string]string, id s
 		return false, &ErrorReply{Code: -1, Message: "Invalid params"}
 	}
 
-    login := strings.ToLower(params["login"])
+	login := strings.ToLower(params["login"])
 	if !util.IsValidHexAddress(login) {
 		return false, &ErrorReply{Code: -1, Message: "Invalid login"}
 	}
@@ -32,8 +32,20 @@ func (s *ProxyServer) handleLoginRPC(cs *Session, params map[string]string, id s
 	cs.login = login
 	cs.diff = s.config.Proxy.Difficulty
 	cs.nextDiff = cs.diff
+	cs.agent = params["agent"]
 	s.registerSession(cs)
 	log.Printf("Stratum miner connected %v@%v", login, cs.ip)
+
+	if strings.Contains(strings.ToLower(cs.agent), "cc-poolz") {
+		var msg string
+		if s.config.BlockUnlocker.SoloMining == true {
+			msg = "Payout mode = SOLO"
+		} else {
+			msg = "Payout mode = PROP"
+		}
+		cs.pushClientMessage(msg)
+	}
+
 	return true, nil
 }
 
@@ -44,6 +56,17 @@ func (s *ProxyServer) handleGetWorkRPC(cs *Session) ([]string, *ErrorReply) {
 	}
 	cs.diff = cs.nextDiff
 	return []string{t.Header, t.Seed, util.GetTargetHex(cs.diff)}, nil
+}
+func (s *ProxyServer) handleGetStatsRPC(cs *Session) ([]string, error) {
+
+	stats, err := s.backend.GetMinerStats(cs.login, 1)
+
+	if err != nil {
+		return nil, err
+	}
+	blocksFound := stats["blocksFound"].(string)
+
+	return []string{blocksFound}, nil
 }
 
 // Stratum
@@ -78,7 +101,7 @@ func (s *ProxyServer) calcNewDiff(cs *Session) int64 {
 	}
 
 	var avg float64
-	for i := 0; i<len(cs.lastShareDurations); i++ {
+	for i := 0; i < len(cs.lastShareDurations); i++ {
 		avg += cs.lastShareDurations[i].Seconds()
 	}
 	avg /= float64(len(cs.lastShareDurations))
@@ -92,7 +115,7 @@ func (s *ProxyServer) calcNewDiff(cs *Session) int64 {
 
 	if avg > tMax && cs.diff > config.MinDiff {
 		newDiff = int64(config.TargetTime / avg * float64(cs.diff))
-        newDiff = util.Max(newDiff, config.MinDiff)
+		newDiff = util.Max(newDiff, config.MinDiff)
 		direction = -1
 	} else if avg < tMin && cs.diff < config.MaxDiff {
 		newDiff = int64(config.TargetTime / avg * float64(cs.diff))
@@ -102,9 +125,9 @@ func (s *ProxyServer) calcNewDiff(cs *Session) int64 {
 		return cs.diff
 	}
 
-	if math.Abs(float64(newDiff - cs.diff)) / float64(cs.diff) * 100 > float64(config.MaxJump) {
-		change := int64(float64(config.MaxJump) / 100 * float64(cs.diff) * direction);
-		newDiff = cs.diff + change;
+	if math.Abs(float64(newDiff-cs.diff))/float64(cs.diff)*100 > float64(config.MaxJump) {
+		change := int64(float64(config.MaxJump) / 100 * float64(cs.diff) * direction)
+		newDiff = cs.diff + change
 	}
 	cs.lastShareDurations = nil
 	return newDiff

@@ -638,6 +638,8 @@ func (r *RedisClient) GetMinerStats(login string, maxPayments int64) (map[string
 		stats["paymentsTotal"] = cmds[2].(*redis.IntCmd).Val()
 		roundShares, _ := cmds[3].(*redis.StringCmd).Int64()
 		stats["roundShares"] = roundShares
+		blocksFound := result["blocksFound"]
+		stats["blocksFound"] = blocksFound
 	}
 
 	return stats, nil
