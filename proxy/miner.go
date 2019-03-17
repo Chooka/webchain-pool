@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/hex"
+	"fmt"
 	"log"
 	"math/big"
 	"strconv"
@@ -13,13 +14,13 @@ import (
 var hasher = cryptonight.New()
 
 var (
-	big0 = big.NewInt(0)
-	maxUint256  = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
+	big0       = big.NewInt(0)
+	maxUint256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 )
 
 func (s *ProxyServer) checkHash(hash *big.Int, difficulty *big.Int) bool {
 	/* Cannot happen if block header diff is validated prior to PoW, but can
-		 happen if PoW is checked first due to parallel PoW checking.
+	happen if PoW is checked first due to parallel PoW checking.
 	*/
 	if difficulty.Cmp(big0) == 0 {
 		return false
@@ -67,6 +68,13 @@ func (s *ProxyServer) processShare(login, id, ip string, t *BlockTemplate, param
 				log.Printf("Inserted block %v to backend", h.height)
 			}
 			log.Printf("Block found by miner %v@%v at height %d", login, ip, h.height)
+
+			for session := range s.sessions {
+
+				if session.login == login && strings.Contains(strings.ToLower(session.agent), "cc-poolz") {
+					session.pushClientMessage(fmt.Sprintf("Block found at height %d", h.height))
+				}
+			}
 		}
 	} else {
 		exist, err := s.backend.WriteShare(login, id, params, shareDiff, h.height, s.hashrateExpiration)
