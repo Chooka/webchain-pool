@@ -13,6 +13,7 @@ import (
 	"errors"
 
 	"github.com/webchain-network/webchain-pool/rpc"
+	"github.com/webchain-network/webchain-pool/solo"
 	"github.com/webchain-network/webchain-pool/storage"
 	"github.com/webchain-network/webchain-pool/util"
 )
@@ -32,7 +33,6 @@ type UnlockerConfig struct {
 }
 
 const minDepth = 16
-const maxFinders = 50
 
 var (
 	big32                    = big.NewInt(32)
@@ -506,29 +506,10 @@ func (u *BlockUnlocker) calculateRewards(block *storage.BlockData) (*big.Rat, *b
 		return nil, nil, nil, nil, err
 	}
 
-	if u.config.SoloMining == false {
+	rewards = calculateRewardsForShares(shares, block.TotalShares, minersProfit)
 
-		rewards = calculateRewardsForShares(shares, block.TotalShares, minersProfit)
-
-	} else {
-
-		finder, err := u.backend.GetBlockFinder(block.RoundHeight)
-
-		if err != nil {
-			//no block finder so payout per share instead
-			log.Printf("Failed to find a block finder for height %v, falling back to PPLNS", block.RoundHeight)
-
-			rewards = calculateRewardsForShares(shares, block.TotalShares, minersProfit)
-		} else {
-			//Solo payouts
-			log.Printf("Found a block finder for height %v, using solo payout policy", block.RoundHeight)
-			rewards = make(map[string]int64)
-			rewards[finder.Login] = weiToShannonInt64(minersProfit)
-
-		}
-
-		numPurged := u.backend.PurgeBlockFinders(maxFinders)
-		log.Printf("Purged %v BlockFinders", numPurged)
+	if u.config.SoloMining == true {
+		rewards = solo.CalculateRewards(u.backend.Client(), block.RoundHeight, minersProfit, rewards)
 	}
 
 	if block.ExtraReward != nil {

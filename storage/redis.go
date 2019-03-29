@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"github.com/webchain-network/webchaind/common"
 	"gopkg.in/redis.v3"
 
+	"github.com/webchain-network/webchain-pool/solo"
 	"github.com/webchain-network/webchain-pool/util"
 )
 
@@ -45,11 +45,6 @@ type BlockData struct {
 	RoundHeight    int64    `json:"-"`
 	candidateKey   string
 	immatureKey    string
-}
-
-type BlockFinder struct {
-	Login  string
-	Height int64
 }
 
 func (b *BlockData) RewardInShannon() int64 {
@@ -238,27 +233,12 @@ func (r *RedisClient) WriteBlock(login, id string, params []string, diff, roundD
 
 		if cmd.Err() != nil {
 			return false, cmd.Err()
-		} else {
-			d := join(login, params[0]) //login:nonce
-			cmd := r.client.ZAdd(r.formatKey("blocks", "finders"), redis.Z{Score: float64(height), Member: d})
-			return false, cmd.Err()
 		}
 
+		return solo.WriteFinder(r.client, height, login, params[0])
 	}
 }
-func (r *RedisClient) PurgeBlockFinders(minCount int) int64 {
-	option := redis.ZRangeByScore{Min: "-inf", Max: "+inf"}
-	cmd := r.client.ZRangeByScoreWithScores(r.formatKey("blocks", "finders"), option)
-	maxCount := len(cmd.Val())
 
-	if maxCount <= minCount {
-		return 0
-	}
-
-	numRemoved := r.client.ZRemRangeByRank(r.formatKey("blocks", "finders"), 0, (int64)(maxCount-minCount)-1)
-
-	return numRemoved.Val()
-}
 func (r *RedisClient) writeShare(tx *redis.Multi, ms, ts int64, login, id string, diff int64, expire time.Duration) {
 	tx.HIncrBy(r.formatKey("shares", "total"), login+"."+id, diff)
 	tx.HIncrBy(r.formatKey("shares", "roundCurrent"), login, diff)
@@ -315,25 +295,6 @@ func (r *RedisClient) GetCandidates(maxHeight int64) ([]*BlockData, error) {
 		return nil, cmd.Err()
 	}
 	return convertCandidateResults(cmd), nil
-}
-
-func (r *RedisClient) GetBlockFinder(height int64) (*BlockFinder, error) {
-	h := strconv.FormatInt(height, 10)
-	option := redis.ZRangeByScore{Min: h, Max: h}
-	cmd := r.client.ZRangeByScoreWithScores(r.formatKey("blocks", "finders"), option)
-
-	if cmd.Err() != nil {
-		return nil, cmd.Err()
-	}
-
-	if len(cmd.Val()) == 0 {
-		return nil, errors.New("No Entries Found For Block Finder")
-	}
-
-	entry := cmd.Val()[0]
-
-	finder := BlockFinder{Login: strings.Split(entry.Member.(string), ":")[0], Height: int64(entry.Score)}
-	return &finder, nil
 }
 
 func (r *RedisClient) GetImmatureBlocks(maxHeight int64) ([]*BlockData, error) {
