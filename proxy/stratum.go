@@ -104,16 +104,23 @@ func (s *ProxyServer) handleTCPClient(cs *Session) error {
 	return nil
 }
 
-func (cs *Session) getJob(hash, blob, target string) map[string]string {
+func (cs *Session) getJob(hash, blob, target, algo string) map[string]string {
 	cs.hashNoNonce = hash
 
 	targetReversed, _ := strconv.ParseUint(target[2:], 16, 64)
 	targetBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(targetBytes[0:], targetReversed)
 
+<<<<<<< HEAD
 	return map[string]string{"blob": blob,
 		"job_id": cs.hashNoNonce[2:34],
 		"target": hex.EncodeToString(targetBytes)}
+=======
+	return map[string]string{ "blob": blob,
+	                          "job_id": cs.hashNoNonce[2:34],
+	                          "target": hex.EncodeToString(targetBytes),
+	                          "algo": algo }
+>>>>>>> upstream/master
 }
 
 func (cs *Session) handleTCPMessage(s *ProxyServer, req *StratumReq) error {
@@ -132,9 +139,15 @@ func (cs *Session) handleTCPMessage(s *ProxyServer, req *StratumReq) error {
 		}
 		if reply {
 			work, _ := s.handleGetWorkRPC(cs)
+<<<<<<< HEAD
 			result := &JobRPC{Id: "0",
 				Job:    cs.getJob(work[0], work[1], work[2]),
 				Status: "OK"}
+=======
+			result := &JobRPC{ Id: "0",
+	                           Job: cs.getJob(work[0], work[1], work[2], work[3]),
+	                           Status: "OK" }
+>>>>>>> upstream/master
 			return cs.sendTCPResult(req.Id, result)
 		}
 
@@ -144,9 +157,15 @@ func (cs *Session) handleTCPMessage(s *ProxyServer, req *StratumReq) error {
 		if errReply != nil {
 			return cs.sendTCPError(req.Id, errReply)
 		}
+<<<<<<< HEAD
 		result := &JobRPC{Id: "0",
 			Job:    cs.getJob(work[0], work[1], work[2]),
 			Status: "OK"}
+=======
+		result := &JobRPC{ Id: "0",
+	                       Job: cs.getJob(work[0], work[1], work[2], work[3]),
+	                       Status: "OK" }
+>>>>>>> upstream/master
 		return cs.sendTCPResult(req.Id, result)
 	case "submit":
 		var params map[string]string
@@ -194,9 +213,15 @@ func (cs *Session) pushNewJob(work *[]string) error {
 	cs.Lock()
 	defer cs.Unlock()
 
+<<<<<<< HEAD
 	message := JSONPushMessage{Version: "2.0",
 		Method: "job",
 		Params: cs.getJob((*work)[0], (*work)[1], (*work)[2])}
+=======
+	message := JSONPushMessage{ Version: "2.0",
+	                            Method: "job",
+	                            Params: cs.getJob((*work)[0], (*work)[1], (*work)[2], (*work)[3]) }
+>>>>>>> upstream/master
 	return cs.enc.Encode(&message)
 }
 func (cs *Session) pushClientMessage(msg string) error {
@@ -267,7 +292,11 @@ func (s *ProxyServer) broadcastNewJobs() {
 
 		go func(cs *Session) {
 			cs.diff = cs.nextDiff
-			reply := []string{t.Header, t.Seed, util.GetTargetHex(cs.diff)}
+			algo := "cryptonight-webchain"
+			if t.Height >= lyra2_block {
+				algo = "lyra2-webchain"
+			}
+			reply := []string{t.Header, t.Seed, util.GetTargetHex(cs.diff), algo}
 			err := cs.pushNewJob(&reply)
 			<-bcast
 			if err != nil {

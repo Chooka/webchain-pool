@@ -55,7 +55,11 @@ func (s *ProxyServer) handleGetWorkRPC(cs *Session) ([]string, *ErrorReply) {
 		return nil, &ErrorReply{Code: 0, Message: "Work not ready"}
 	}
 	cs.diff = cs.nextDiff
-	return []string{t.Header, t.Seed, util.GetTargetHex(cs.diff)}, nil
+	algo := "cryptonight-webchain"
+	if t.Height >= lyra2_block {
+		algo = "lyra2-webchain"
+	}
+	return []string{t.Header, t.Seed, util.GetTargetHex(cs.diff), algo}, nil
 }
 func (s *ProxyServer) handleGetStatsRPC(cs *Session) ([]string, error) {
 
