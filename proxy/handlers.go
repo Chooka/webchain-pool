@@ -72,6 +72,17 @@ func (s *ProxyServer) handleGetStatsRPC(cs *Session) ([]string, error) {
 
 	return []string{blocksFound}, nil
 }
+func (s *ProxyServer) handleGetStatsRPC(cs *Session) ([]string, error) {
+
+	stats, err := s.backend.GetMinerStats(cs.login, 1)
+
+	if err != nil {
+		return nil, err
+	}
+	blocksFound := stats["blocksFound"].(string)
+
+	return []string{blocksFound}, nil
+}
 
 // Stratum
 func (s *ProxyServer) handleTCPSubmitRPC(cs *Session, id string, params []string) (bool, *ErrorReply) {
