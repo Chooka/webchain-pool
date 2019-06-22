@@ -3,10 +3,10 @@
     <div class="row">
       <div class="col-md-5">
         <h1 style="font-size: 24px">
-          <strong>Webchain Solo Pool</strong>
+          <strong>Webchain Solo Mining</strong>
         </h1>
         <strong>Min. payout threshold: {{config.PayoutThreshold}}</strong>, Payouts run every 10 minutes.<br/>
-        <span class="label label-success">PROP</span> Modified pool to allow solo mining without needing your own proxy/pool. Miner reward is paid to the miner who found the solution for the block.
+        <span class="label label-success">SOLO</span> Modified pool to allow solo mining without needing your own proxy/pool. Miner reward is paid to the miner who found the solution for the block.
       </div>
       <div class="col-md-3 stats">
         <div><i class="fa fa-users"></i> Miners Online: <span id="poolHashrate">{{format-number stats.model.minersTotal}}</span></div>
@@ -33,6 +33,16 @@
 
 
 <div class="container">
+
+  <div class="note note-info text-center">
+    <h4>
+        This pool has been upgraded to be compatible with the April 8th Hardfork at block 2022222.
+    </h4>
+    <h4>
+        Please upgrade your mining software for a smooth transition to the new mining algorithm.
+    </h4>
+
+  </div>
 
   <div style="height:500px; background-color: #1D2330; overflow:hidden; box-sizing: border-box; border: 1px solid #282E3B; border-radius: 4px; text-align: right; line-height:14px; font-size: 12px; box-sizing:content-box; font-feature-settings: normal; text-size-adjust: 100%; box-shadow: inset 0 -20px 0 0 #262B38;padding:1px;padding: 1px; margin: 0px;">
 
@@ -62,8 +72,26 @@
 
   <div>
     <hr/>
-    <h4 class="note note-info text-center">
-      webchain-miner -o {{config.HttpHost}}:{{config.HttpPort}} -u &lt;address&gt; -p x
-    </h4>
+    <div class="note note-info text-center">
+      <h5 >
+        Static difficulty 1000
+      </h5>
+      <h4 >
+        webchain-miner -o {{config.HttpHost}}:1111 -u &lt;address&gt; -p x
+      </h4><br>
+      <h5 >
+        Variable difficulty 1000 - 5000
+      </h5>
+      <h4 >
+        webchain-miner -o {{config.HttpHost}}:2222 -u &lt;address&gt; -p x
+      </h4><br>
+      <h5 >
+        Variable difficulty 10000 - 25000
+      </h5>
+      <h4 >
+        webchain-miner -o {{config.HttpHost}}:{{config.HttpPort}} -u &lt;address&gt; -p x
+      </h4>
+    </div>
+
   </div>
 </div>

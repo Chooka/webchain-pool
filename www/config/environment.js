@@ -15,19 +15,19 @@ module.exports = function(environment) {
 
     APP: {
       // API host and port
-      ApiUrl: '//webchain.ccpoolz.com/',
+      ApiUrl: '//webcn.cc-poolz.com/',
 
       // HTTP mining endpoint
-      HttpHost: 'webchain.ccpoolz.com',
+      HttpHost: 'webcn.cc-poolz.com',
       HttpPort: 3333,
 
       // Stratum mining endpoint
-      StratumHost: 'webchain.ccpoolz.com',
+      StratumHost: 'webcn.cc-poolz.com',
       StratumPort: 3333,
 
       // Fee and payout details
       PoolFee: '1%',
-      PayoutThreshold: '5 WEB',
+      PayoutThreshold: '1 WEB',
 
       // For network hashrate (change for your favourite fork)
       BlockTime: 12.0
